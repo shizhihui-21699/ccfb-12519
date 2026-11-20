@@ -1,0 +1,73 @@
+<div class="page">
+  <header class="hero">
+    <h1>泄露密钥影响面调查台</h1>
+    <p class="subtitle">
+      导入云操作审计日志(CloudTrail 风格 JSONL),按访问密钥还原全部调用,
+      归并数据窃取、后门植入、删改破坏,并串出攻击者的完整操作经过。
+    </p>
+  </header>
+
+  <section class="card">
+    <h2>1. 导入审计日志</h2>
+
+    <div class="import-grid">
+      <.form for={%{}} as={:import} action={~p"/import"} method="post" multipart>
+        <label class="field">
+          <span>粘贴日志内容(每行一条事件,或 {"{\"Records\":[...]}"} 批量格式)</span>
+          <textarea name="log_text" rows="8" placeholder='{"eventVersion":"1.08","userIdentity":{...},"eventName":"GetObject",...}'></textarea>
+        </label>
+        <label class="field">
+          <span>或选择本地日志文件(.jsonl / .json)</span>
+          <input type="file" name="log_file" accept=".jsonl,.json,.log,.txt" />
+        </label>
+        <button type="submit" class="btn primary">导入</button>
+      </.form>
+
+      <div class="sample-box">
+        <h3>没有日志?</h3>
+        <p>
+          内置一份模拟样例:开发 <code>chen.lei</code> 的密钥
+          <code>AKIA3X7KQZMWJPLM4V2T</code> 被贴进公开代码片段,
+          三天内被攻击者用于侦察、窃取数据、植入后门、挖矿与清理痕迹,直至密钥吊销。
+        </p>
+        <.form for={%{}} as={:import} action={~p"/import"} method="post">
+          <input type="hidden" name="sample" value="1" />
+          <button type="submit" class="btn">加载样例日志</button>
+        </.form>
+      </div>
+    </div>
+  </section>
+
+  <%= if @loaded do %>
+    <section class="card">
+      <h2>2. 选择要调查的访问密钥</h2>
+      <p class="muted">当前数据集:{@source_name} · 日志中共发现 {length(@key_index)} 把密钥</p>
+      <table class="keys-table">
+        <thead>
+          <tr>
+            <th>Access Key ID</th>
+            <th>关联身份</th>
+            <th>调用次数</th>
+            <th>首次调用 (UTC)</th>
+            <th>最后调用 (UTC)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= for k <- @key_index do %>
+            <tr>
+              <td><code>{k.key_id}</code></td>
+              <td>{Enum.join(k.principals, ", ")}</td>
+              <td>{k.count}</td>
+              <td>{fmt_time(k.first_seen)}</td>
+              <td>{fmt_time(k.last_seen)}</td>
+              <td>
+                <a class="btn small primary" href={~p"/report/#{k.key_id}"}>开始调查 →</a>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </section>
+  <% end %>
+</div>

@@ -1,0 +1,104 @@
+<div class="page">
+  <header class="hero">
+    <a href={~p"/"} class="back-link">← 返回导入页</a>
+    <h1>调查报告:<code>{@report.key_id}</code></h1>
+    <p class="subtitle">
+      关联身份 {Enum.join(@report.principals, ", ")} ·
+      活动窗口 {fmt_date(@report.first_seen)} {fmt_time(@report.first_seen)} →
+      {fmt_date(@report.last_seen)} {fmt_time(@report.last_seen)} (UTC)
+    </p>
+  </header>
+
+  {risk_banner(@report.risk)}
+
+  <section class="overview-grid">
+    <div class="stat"><span class="stat-num">{@report.total}</span><span class="stat-label">总调用次数</span></div>
+    <div class="stat"><span class="stat-num">{@report.denied_count}</span><span class="stat-label">被拒/失败调用</span></div>
+    <div class="stat"><span class="stat-num">{length(@report.source_ips)}</span><span class="stat-label">来源 IP</span></div>
+    <div class="stat"><span class="stat-num">{length(@report.regions)}</span><span class="stat-label">涉及区域</span></div>
+  </section>
+
+  <section class="card">
+    <h2>来源指纹</h2>
+    <dl class="facts">
+      <dt>来源 IP</dt>
+      <dd><%= for ip <- @report.source_ips do %><code class="chip">{ip}</code><% end %></dd>
+      <dt>User-Agent</dt>
+      <dd><%= for ua <- @report.user_agents do %><code class="chip">{ua}</code><% end %></dd>
+      <dt>区域</dt>
+      <dd><%= for r <- @report.regions do %><code class="chip">{r}</code><% end %></dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>攻击经过(按时间还原)</h2>
+    <p class="muted">相邻同类操作已合并为一个步骤;时间均为 UTC。</p>
+    <ol class="timeline">
+      <%= for step <- @report.timeline do %>
+        <li class={["tl-step", "tl-#{step.severity}"]}>
+          <div class="tl-head">
+            <span class="tl-index">{step.index}</span>
+            <span class="tl-phase">{step.phase}</span>
+            {severity_badge(step.severity)}
+            <span class="tl-time">
+              {fmt_time(step.start_time)}<%= if step.last_time != step.start_time do %> → {fmt_time(step.last_time)}<% end %>
+            </span>
+            <span class="tl-ip">{step.source_ip}</span>
+          </div>
+          <ul class="tl-actions">
+            <%= for a <- step.actions do %>
+              <li>
+                <span class="tl-action-time">{fmt_time(a.time)}</span>
+                {a.description}
+                <code class="tl-event">{a.event.event_source} {a.event.event_name}</code>
+                <%= if a.event.error_code do %>
+                  <span class="badge badge-denied">失败:{a.event.error_code}</span>
+                <% end %>
+              </li>
+            <% end %>
+          </ul>
+        </li>
+      <% end %>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>影响面清单</h2>
+    <%= for cat <- @report.by_category, cat.count > 0 do %>
+      <div class="cat-block">
+        <h3>
+          {cat.label}
+          <span class="count">{cat.count}</span>
+          {severity_badge(cat.severity)}
+        </h3>
+        <p class="muted">{cat.hint}</p>
+        <table class="findings-table">
+          <thead>
+            <tr><th>时间 (UTC)</th><th>操作</th><th>来源 IP</th><th>API</th></tr>
+          </thead>
+          <tbody>
+            <%= for item <- cat.items do %>
+              <tr>
+                <td class="nowrap">{fmt_time(item.event.event_time)}</td>
+                <td>{item.description}</td>
+                <td class="nowrap"><code>{item.event.source_ip}</code></td>
+                <td class="nowrap"><code>{item.event.event_source} {item.event.event_name}</code></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </section>
+
+  <section class="card remediation">
+    <h2>处置建议</h2>
+    <ul>
+      <li>吊销密钥只是第一步:逐一核对「新建账号 / 密钥 / 后门」清单,删除攻击者创建的用户、密钥、登录密码、Lambda 函数、定时规则与安全组放行规则。</li>
+      <li>回滚「权限提升」改动:检查被附加的管理员策略、被修改的角色信任策略(尤其是允许外部账号扮演)。</li>
+      <li>「数据读取 / 下载」清单中的对象、密钥与参数均应按已泄露处置:轮换数据库口令、支付密钥,评估个人信息泄露通报义务。</li>
+      <li>恢复被停止的日志与告警(CloudTrail / CloudWatch / 日志组),检查日志空洞期间是否有其他身份活动。</li>
+      <li>对照「删除 / 篡改」清单从备份恢复资源;终止滥开的实例并核对账单。</li>
+    </ul>
+  </section>
+</div>
